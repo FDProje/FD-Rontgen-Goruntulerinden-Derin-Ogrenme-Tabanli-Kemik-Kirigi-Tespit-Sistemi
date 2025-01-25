@@ -5,9 +5,30 @@ import cv2
 import numpy as np
 from click import command
 from ultralytics import YOLO
+import torch
+from torchvision import models, transforms
+import torch.nn as nn
+from PIL import Image
 
 # YOLO modelini yükleyin
 model = YOLO(r"C:\Users\kuzey\PycharmProjects\Fractures2\best.pt")
+
+# EfficientNet model class
+class EfficientNet(nn.Module):
+    def __init__(self, pretrained=True, num_classes=7):
+        super(EfficientNet, self).__init__()
+        self.backbone = models.efficientnet_b7(weights="IMAGENET1K_V1" if pretrained else None)
+        in_features = self.backbone.classifier[1].in_features
+        self.backbone.classifier[1] = nn.Linear(in_features, num_classes)
+
+    def forward(self, x):
+        return self.backbone(x)
+
+    # Load model checkpoint
+
+
+checkpoint_path = r'C:\Users\kuzey\PycharmProjects\Fractures2\best_checkpoint.pth'
+classification_model = EfficientNet()
 
 def apply_sobel_filter(image_path):
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -39,20 +60,53 @@ def on_upload_click():
     except Exception as e:
         messagebox.showerror("Error", f"Bir hata oluştu: {e}")
 
+
+def detect_fracture_type(image_path, model):
+    # Load and preprocess the image
+    img = Image.open(image_path)
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(img).unsqueeze(0)
+
+    # Predict using the model
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    img_tensor = img_tensor.to(device)
+
+    model.eval()
+    with torch.no_grad():
+        outputs = model(img_tensor)
+
+    _, predicted_class = torch.max(outputs, 1)
+
+    # Map the predicted class index to the corresponding class name
+    class_names = {
+        1: "Comminuted",
+        2: "Compression Crush",
+        3: "Hairline",
+        4: "Impacted",
+        5: "Longitudinal",
+        6: "Oblique",
+        7: "Spiral"
+    }
+    return class_names.get(predicted_class.item() + 1, "Unknown")
+
+
 def show_processed_image(file_path, sobel_image, yolo_image):
     def on_upload_click_2():
-        # Dosya seçici açılır
         file_path = filedialog.askopenfilename(filetypes=[("Resim Dosyaları", "*.png *.jpg *.jpeg *.bmp *.gif")])
         if not file_path:
             return
 
         try:
-            # Resmi işleyin
             sobel_image = apply_sobel_filter(file_path)
             yolo_image = detect_fractures_with_yolov8(sobel_image, model)
-
-            # İşlenmiş resmi yeni bir pencerede gösterin
+            fracture_type = detect_fracture_type(file_path, classification_model)  # Classify fracture type
             show_processed_image(file_path, sobel_image, yolo_image)
+            fracture_label["text"] = f"Kırık/Çatlak Çeşidi: {fracture_type}"
             new_window.destroy()
         except Exception as e:
             messagebox.showerror("Error", f"Bir hata oluştu: {e}")
@@ -61,30 +115,23 @@ def show_processed_image(file_path, sobel_image, yolo_image):
         root.destroy()
         new_window.destroy()
 
-    # Yeni bir pencere oluşturun
+    fracture_type = detect_fracture_type(file_path, classification_model)  # Classify fracture type
+
     new_window = Toplevel()
     new_window.title("X-Ray Kırık & Çatlak Tespit Sistemi")
     new_window.geometry("1920x1080")
     new_window.configure(bg="#a4b0f5")
 
-    # Resmi yükleyin
     original_image = cv2.imread(file_path)
     original_image_rgb = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
 
-    # PIL ile resimleri işleyip Tkinter uyumlu hale getirin
     original_image_pil = Image.fromarray(original_image_rgb).resize((240, 240))
     sobel_image_pil = Image.fromarray(sobel_image).resize((240, 240))
     yolo_image_pil = Image.fromarray(yolo_image).resize((240, 240))
 
-    # Resimleri yeni pencereye ekleyin
     original_image_tk = ImageTk.PhotoImage(original_image_pil)
     sobel_image_tk = ImageTk.PhotoImage(sobel_image_pil)
     yolo_image_tk = ImageTk.PhotoImage(yolo_image_pil)
-
-    image_path_logo = r"C:\Users\kuzey\PycharmProjects\Fractures2\Arayüz_Iconları\Logo_Kucuk.png"
-    img_logo = PhotoImage(file=image_path_logo)
-    image_label_logo = tk.Label(new_window, image=img_logo, bg="#a4b0f5")
-    image_label_logo.grid(row=0, column=0, padx=110, pady=20)
 
     original_label = Label(new_window, image=original_image_tk)
     original_label.image = original_image_tk
@@ -98,7 +145,6 @@ def show_processed_image(file_path, sobel_image, yolo_image):
     yolo_label.image = yolo_image_tk
     yolo_label.grid(row=0, column=3, padx=10, pady=20)
 
-    # Yazı ekleme (Resmin altına yazı)
     original_text_label = Label(new_window, text="Orijinal Resim", font=("Arial", 12, "bold"))
     original_text_label.grid(row=1, column=1, pady=(5, 10))
     original_text_label.configure(bg="#a4b0f5")
@@ -114,17 +160,17 @@ def show_processed_image(file_path, sobel_image, yolo_image):
     upload_button_2 = tk.Button(
         new_window, text="RESİM YÜKLE", bg="#e63946", fg="white", font=("Arial", 14, "bold"), command=on_upload_click_2,
     )
-    upload_button_2.grid(row=2, column=1, pady=(5,10))
+    upload_button_2.grid(row=2, column=1, pady=(5, 10))
 
-    kirik_turu = tk.Label(
-        new_window, text="Kırık/Çatlak Çeşidi: ", bg="black", fg="white", font=("Arial", 14, "bold")
+    fracture_label = tk.Label(
+        new_window, text=f"Kırık/Çatlak Çeşidi: {fracture_type}", bg="black", fg="white", font=("Arial", 14, "bold")
     )
-    kirik_turu.grid(row=2, column=2, pady=(5,10))
+    fracture_label.grid(row=2, column=2, pady=(5, 10))
 
     exit_button = tk.Button(
         new_window, text="ÇIKIŞ", bg="#e63946", fg="white", font=("Arial", 14, "bold"), command=exit_click,
     )
-    exit_button.grid(row=2, column=3, pady=(5,10))
+    exit_button.grid(row=2, column=3, pady=(5, 10))
 
 # Ana pencere oluşturma
 root = tk.Tk()
