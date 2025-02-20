@@ -71,7 +71,6 @@ def detect_fracture_type(image_path, model):
     ])
     img_tensor = transform(img).unsqueeze(0)
 
-    # Predict using the model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     img_tensor = img_tensor.to(device)
@@ -82,7 +81,6 @@ def detect_fracture_type(image_path, model):
 
     _, predicted_class = torch.max(outputs, 1)
 
-    # Map the predicted class index to the corresponding class name
     class_names = {
         1: "Comminuted",
         2: "Compression Crush",
