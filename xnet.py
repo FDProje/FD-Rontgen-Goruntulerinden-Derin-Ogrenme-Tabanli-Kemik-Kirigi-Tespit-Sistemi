@@ -66,7 +66,6 @@ test_generator = test_datagen.flow_from_directory(
 def build_model(input_shape=(224, 224, 3), classes=7, kernel_size=3, filter_depth=(64, 128, 256)):
     img_input = Input(shape=input_shape)
 
-    # Encoder
     conv1 = Conv2D(filter_depth[0], (kernel_size, kernel_size), padding="same")(img_input)
     batch1 = BatchNormalization()(conv1)
     act1 = Activation("relu")(batch1)
@@ -81,7 +80,6 @@ def build_model(input_shape=(224, 224, 3), classes=7, kernel_size=3, filter_dept
     batch3 = BatchNormalization()(conv3)
     act3 = Activation("relu")(batch3)
 
-    # Decoder
     up1 = UpSampling2D(size=(2, 2))(act3)
     conv4 = Conv2D(filter_depth[1], (kernel_size, kernel_size), padding="same")(up1)
     batch4 = BatchNormalization()(conv4)
@@ -92,7 +90,6 @@ def build_model(input_shape=(224, 224, 3), classes=7, kernel_size=3, filter_dept
     batch5 = BatchNormalization()(conv5)
     act5 = Activation("relu")(batch5)
 
-    # Output layer
     conv6 = Conv2D(classes, (1, 1), activation="softmax", padding="same")(act5)
     output = tf.keras.layers.GlobalAveragePooling2D()(conv6)  # Directly reduce dimensions
     model = Model(img_input, output)
@@ -113,17 +110,14 @@ def random_search(num_trials=5):
 
         print(f"Trial {trial+1}: filters={filters}, kernel_size={kernel_size}, dropout_rate={dropout_rate}, learning_rate={lr}")
 
-        # Use build_model instead of model
         model = build_model(input_shape=(img_width, img_height, 3), classes=num_classes)
 
-        # Update optimizer with current learning rate
         model.compile(
             optimizer=Adam(learning_rate=lr),
             loss='categorical_crossentropy',
             metrics=['accuracy']
         )
 
-        # Train the model and evaluate
         history = model.fit(
             train_generator,
             epochs=epochs,
@@ -131,7 +125,6 @@ def random_search(num_trials=5):
             callbacks=[early_stopping, model_checkpoint]
         )
 
-        # Get the validation accuracy
         val_acc = max(history.history['val_accuracy'])
 
         if val_acc > best_acc:
