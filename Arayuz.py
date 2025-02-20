@@ -24,9 +24,6 @@ class EfficientNet(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
-    # Load model checkpoint
-
-
 checkpoint_path = r'C:\Users\kuzey\PycharmProjects\Fractures2\best_checkpoint.pth'
 classification_model = EfficientNet()
 
@@ -62,7 +59,6 @@ def on_upload_click():
 
 
 def detect_fracture_type(image_path, model):
-    # Load and preprocess the image
     img = Image.open(image_path)
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
