@@ -31,10 +31,10 @@ image_files, label_files = get_sorted_files(image_dir, label_dir)
 
 images = []
 labels = []
-IMG_SIZE = 256  # Image size for resizing
+IMG_SIZE = 256
 for image_file, label_file in zip(image_files, label_files):
     image = cv2.imread(str(image_file))
-    image = cv2.resize(image, (IMG_SIZE, IMG_SIZE))  # Resize the image
+    image = cv2.resize(image, (IMG_SIZE, IMG_SIZE))
     label = get_label(str(label_file))
     if label is None:
         continue
@@ -80,7 +80,7 @@ model = Sequential([
     Flatten(),
     Dropout(0.3),
     Dense(128, activation='relu'),
-    Dense(6, activation='softmax')  # Assuming 6 classes for fractures
+    Dense(6, activation='softmax')
 ])
 
 model.summary()
