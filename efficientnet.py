@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from sklearn.preprocessing import label_binarize
 
-# ----------- SETUP | HAZIRLIK -----------
+# ----------- HAZIRLIK -----------
 base_dir = r'C:\Users\asyao\PycharmProjects\MICROFRACTURES\fdataset'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_path = r'/content/drive/MyDrive/fdataset/fdataset/train/overlay'
@@ -22,7 +22,7 @@ num_classes = 7
 image_size = (224, 224)
 
 
-# ----------- DATASET PREPARATION | VERI ÖNİŞLEME -----------
+# ----------- VERI ÖNİŞLEME -----------
 class NormalImageDataset(Dataset):
     def __init__(self, normal_dir, transform=None):
         self.normal_dir = normal_dir
@@ -49,7 +49,7 @@ class NormalImageDataset(Dataset):
         return len(self.normal_images)
 
 
-# ----------- MODEL DEFINITION | MODEL MİMARİSİ -----------
+# ----------- MODEL MİMARİSİ -----------
 import torch
 import torch.nn as nn
 from torchvision import models
@@ -65,24 +65,23 @@ from torchvision import models
 class EfficientNet(nn.Module):
     def __init__(self, pretrained=True, num_classes=7):
         super(EfficientNet, self).__init__()
-        # Load the EfficientNet B7 model with or without pretrained weights
+
         self.backbone = models.efficientnet_b7(weights="IMAGENET1K_V1" if pretrained else None)
 
-        # Modify the classifier to match the number of classes
-        in_features = self.backbone.classifier[1].in_features  # 2560 for EfficientNet B7
-        self.backbone.classifier[1] = nn.Linear(in_features, num_classes)  # Set the output to 7 classes
+        in_features = self.backbone.classifier[1].in_features 
+        self.backbone.classifier[1] = nn.Linear(in_features, num_classes) 
 
     def forward(self, x):
-        return self.backbone(x)  # Forward pass through EfficientNet B7
+        return self.backbone(x)
 
-# ----------- TRANSFORMS AND DATA LOADERS | TRANSFORMERLAR VE VERİ YÜKLEME -----------
+# ----------- TRANSFORMERLAR VE VERİ YÜKLEME -----------
 def dataset(batch_size=32):
     transform = transforms.Compose([
         transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(30),
-        transforms.RandomAffine(degrees=15, shear=10),  # Added affine transformation
+        transforms.RandomAffine(degrees=15, shear=10),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
@@ -102,7 +101,7 @@ def dataset(batch_size=32):
     return train_loader, val_loader, test_loader
 
 
-# ----------- TRAINING AND EVALUATION | EĞİTİM VE DEĞERLENDİRME -----------
+# ----------- EĞİTİM VE DEĞERLENDİRME -----------
 def save_checkpoint(model, optimizer, epoch, val_loss, filename="checkpoint.pth"):
     checkpoint = {
         'epoch': epoch,
@@ -126,10 +125,8 @@ def load_checkpoint(model, optimizer, filename="checkpoint.pth"):
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs=50):
     best_val_loss = float('inf')
-    # Metrics
     history = {'train_loss': [], 'val_loss': [], 'train_accuracy': [], 'val_accuracy': []}
     for epoch in range(num_epochs):
-        # Training Phase
         model.train()
         running_loss = 0.0
         correct = 0
@@ -152,7 +149,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         history['train_loss'].append(train_loss)
         history['train_accuracy'].append(train_accuracy)
 
-        # Validation Phase
         model.eval()
         val_loss = 0.0
         correct = 0
@@ -170,7 +166,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         val_accuracy = correct / total
         history['val_loss'].append(val_loss)
         history['val_accuracy'].append(val_accuracy)
-        # Learning rate - scheduler step
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             scheduler.step(val_loss)
         else:
@@ -178,8 +173,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
         print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {train_loss:.4f}, Train Acc: {train_accuracy:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Acc: {val_accuracy:.4f}")
-
-        # Save checkpoint based on the best validation loss
+        
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             save_checkpoint(model, optimizer, epoch, val_loss)
@@ -187,12 +181,10 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
     return model, history
 
 
-# ----------- TRAINING & EVALUATION | EĞİTİM SONU DEĞERLENDİRME -----------
+# ----------- EĞİTİM SONU DEĞERLENDİRME -----------
 def plot_metrics(history):
-    # Accuracy and Loss Plots
     plt.figure(figsize=(12, 6))
 
-    # Loss Plot
     plt.subplot(1, 2, 1)
     plt.plot(history['train_loss'], label='Train Loss')
     plt.plot(history['val_loss'], label='Validation Loss')
@@ -201,7 +193,6 @@ def plot_metrics(history):
     plt.legend()
     plt.title('Loss over Epochs')
 
-    # Accuracy Plot
     plt.subplot(1, 2, 2)
     plt.plot(history['train_accuracy'], label='Train Accuracy')
     plt.plot(history['val_accuracy'], label='Validation Accuracy')
@@ -213,7 +204,7 @@ def plot_metrics(history):
     plt.show()
 
 
-# ----------- TESTING THE MODEL | TEST -----------
+# ----------- TEST -----------
 def test_model(model, test_loader):
     model.eval()
     all_labels = []
@@ -243,7 +234,6 @@ def plot_confusion_matrix(all_labels, all_preds, num_classes):
 
 
 def plot_roc_curve(all_labels, all_preds, num_classes):
-    # One-hot encode labels for multi-class ROC curve
     y_true = label_binarize(all_labels, classes=[i for i in range(1, num_classes + 1)])
     fpr, tpr, _ = roc_curve(y_true.ravel(), np.array(all_preds).ravel())
     roc_auc = auc(fpr, tpr)
@@ -259,7 +249,6 @@ def plot_roc_curve(all_labels, all_preds, num_classes):
 
 
 def main():
-    # ----------- SETUP -----------
     print("Setup")
     num_classes = 7
     batch_size = 32
@@ -269,25 +258,21 @@ def main():
     model = EfficientNet(pretrained=True, num_classes=num_classes).to(device)
 
     print("Model Optizing")
-    # ----------- LOSS FUNCTION AND OPTIMIZER -----------
-    criterion = nn.CrossEntropyLoss()  # For multi-class classification
+    criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)  # LR scheduler
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     print(f"Criterion: ", criterion,"Optimizer: ", optimizer, "Scheduler: ", scheduler)
 
     print("Training")
-    # ----------- TRAINING THE MODEL -----------
     model, history = train_model(
         model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs=num_epochs
     )
     model.save('model_26.pt')
 
     print("Plotting")
-    # ----------- PLOTTING TRAINING METRICS -----------
     plot_metrics(history)
 
     print("Testing")
-    # ----------- TESTING THE MODEL -----------
     test_model(model, test_loader)
 
 if __name__ == "__main__":
