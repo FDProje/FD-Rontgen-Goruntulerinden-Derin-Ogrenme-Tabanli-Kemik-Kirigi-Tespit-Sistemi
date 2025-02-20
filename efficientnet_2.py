@@ -11,7 +11,6 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from sklearn.preprocessing import label_binarize
 
-# ----------- SETUP -----------
 base_dir = r'C:\Users\asyao\PycharmProjects\MICROFRACTURES\fdataset'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 train_path = r'/content/drive/MyDrive/fdataset/fdataset/train/overlay'
@@ -19,7 +18,6 @@ val_path = r'/content/drive/MyDrive/fdataset/fdataset/val/overlay'
 test_path = r'/content/drive/MyDrive/fdataset/fdataset/test/overlay'
 num_classes = 7
 
-# ----------- DATASET PREPARATION -----------
 class NormalImageDataset(Dataset):
     def __init__(self, normal_dir, transform=None):
         self.normal_dir = normal_dir
@@ -45,7 +43,6 @@ class NormalImageDataset(Dataset):
     def __len__(self):
         return len(self.normal_images)
 
-# ----------- MODEL DEFINITION -----------
 class EfficientNet(nn.Module):
     def __init__(self, pretrained=True, num_classes=7):
         super(EfficientNet, self).__init__()
@@ -56,7 +53,6 @@ class EfficientNet(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
-# ----------- TRANSFORMS AND DATA LOADERS -----------
 def dataset(batch_size=32):
     transform = transforms.Compose([
         transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3),
@@ -82,7 +78,6 @@ def dataset(batch_size=32):
 
     return train_loader, val_loader, test_loader
 
-# ----------- CHECKPOINT MANAGEMENT -----------
 def save_checkpoint(model, optimizer, epoch, val_loss, filename):
     checkpoint = {
         'epoch': epoch,
@@ -102,13 +97,11 @@ def load_checkpoint(model, optimizer, filename):
     print(f"Checkpoint loaded from epoch {epoch + 1}")
     return model, optimizer, epoch, val_loss
 
-# ----------- TRAINING FUNCTION -----------
 def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, checkpoint_path):
     best_val_loss = float('inf')
     history = {'train_loss': [], 'val_loss': [], 'train_accuracy': [], 'val_accuracy': []}
 
     for epoch in range(num_epochs):
-        # Training
         model.train()
         running_loss = 0.0
         correct = 0
@@ -131,7 +124,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         history['train_loss'].append(train_loss)
         history['train_accuracy'].append(train_accuracy)
 
-        # Validation
         model.eval()
         val_loss = 0.0
         correct = 0
@@ -157,14 +149,12 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         print(f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {train_loss:.4f}, Train Acc: {train_accuracy:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Acc: {val_accuracy:.4f}")
 
-        # Save best checkpoint
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             save_checkpoint(model, optimizer, epoch, val_loss, checkpoint_path)
 
     return model, history
 
-# ----------- PLOT METRICS -----------
 def plot_metrics(history):
     plt.figure(figsize=(12, 6))
 
@@ -186,7 +176,6 @@ def plot_metrics(history):
 
     plt.show()
 
-# ----------- MAIN FUNCTION -----------
 def main():
     train_loader, val_loader, test_loader = dataset(batch_size=32)
     model = EfficientNet(pretrained=True, num_classes=num_classes).to(device)
