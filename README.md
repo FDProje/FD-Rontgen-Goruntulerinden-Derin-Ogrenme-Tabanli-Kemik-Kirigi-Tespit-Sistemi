@@ -1,1 +1,1 @@
-# FD-Rontgen-Goruntulerinden-Derin-Ogrenme-Tabanli-Kemik-Kirigi-Tespit-Sistemi
+
